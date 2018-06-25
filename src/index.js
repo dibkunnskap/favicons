@@ -16,7 +16,7 @@ function favicons(source, options = {}, next) {
 
   options = mergeDefaults(options, configDefaults.defaults);
 
-  const config = clone(configDefaults);
+  const config = mergeDefaults(options.config || {}, clone(configDefaults));
   const µ = helpers(options);
 
   function createFavicon(sourceset, properties, name, platformOptions) {
