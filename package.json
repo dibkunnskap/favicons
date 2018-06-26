@@ -11,12 +11,14 @@
     "url": "https://github.com/itgalaxy/favicons.git"
   },
   "scripts": {
+    "postinstall": "npm run build",
     "lint": "eslint . --ignore-path .gitignore",
     "fix": "npm run lint -- --fix",
     "pretest": "npm run lint",
     "test-only": "ava --require @babel/register test/**/*.test.js",
     "test": "npm run test-only",
     "coverage": "nyc npm test",
+    "build": "gulp",
     "prepublish": "gulp"
   },
   "keywords": [

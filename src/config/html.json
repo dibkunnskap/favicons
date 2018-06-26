@@ -46,5 +46,8 @@
   },
   "yandex": {
     "link[rel='yandex-tableau-widget'][href$='yandex-browser-manifest.json']": "<link rel='yandex-tableau-widget' href='yandex-browser-manifest.json'>"
+  },
+  "opensearch": {
+    "link[rel='search'][type='application/opensearchdescription+xml'][href$='opensearch-description.xml'][title='search favicons']": "<link rel='search' type='application/opensearchdescription+xml' href='opensearch-description.xml' title='search favicons'>"
   }
 }

@@ -130,6 +130,11 @@ module.exports = function(options) {
               .first()
               .attr(attribute, options.appName);
           }
+          if (html.includes("application/opensearchdescription+xml")) {
+            $("*")
+              .first()
+              .attr("title", options.searchTitle);
+          }
           return resolve($.html());
         });
       }
@@ -185,6 +190,63 @@ module.exports = function(options) {
             properties.layout.logo = relative(properties.layout.logo);
             properties.layout.color = options.background;
             properties = JSON.stringify(properties, null, 2);
+          } else if (name === "opensearch-description.xml") {
+            properties[0].children.map(property => {
+              switch (property.name) {
+                case "ShortName":
+                  property.text = options.appName;
+                  break;
+                case "Description":
+                  property.text = options.appDescription;
+                  break;
+                case "SyndicationRight":
+                  property.text = options.syndicationRight;
+                  break;
+                case "Image":
+                  property.text = relative(property.text);
+                  break;
+                case "Language":
+                  property.text = options.lang;
+                  break;
+                case "AdultContent":
+                  property.text = options.adultContent;
+                  break;
+                case "Url": {
+                  const { attrs = {}, children = [] } = property;
+
+                  switch (attrs.type) {
+                    case "text/html":
+                      attrs.template = relative(options.searchUrl);
+                      children
+                        .filter(({ name }) => name === "Param")
+                        .filter(
+                          ({ attrs: { value } = {} }) =>
+                            value === "{searchTerms}"
+                        )
+                        .map(
+                          child => (child.attrs.name = options.searchParameter)
+                        );
+                      break;
+                    case "application/x-suggestions+json":
+                      attrs.template = relative(options.suggestionsUrl);
+                      break;
+                    default:
+                      break;
+                  }
+                  break;
+                }
+                case "moz:SearchForm":
+                  property.text = options.searchPageUrl;
+                  break;
+                default:
+                  break;
+              }
+            });
+            properties = jsonxml(properties, {
+              prettyPrint: true,
+              xmlHeader: true,
+              indent: "  "
+            });
           } else if (/\.html$/.test(name)) {
             properties = properties.join("\n");
           }

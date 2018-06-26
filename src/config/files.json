@@ -101,5 +101,71 @@
     		"show_title": true
     	}
     }
+  },
+  "opensearch": {
+    "opensearch-description.xml": [{
+      "name": "OpenSearchDescription",
+      "attrs": {
+        "xmlns": "http://a9.com/-/spec/opensearch/1.1/",
+        "xmlns:moz": "http://www.mozilla.org/2006/browser/search/"
+      },
+      "children": [{
+        "name": "ShortName",
+        "text": "short name"
+      }, {
+        "name": "Description",
+        "text": "description"
+      }, {
+        "name": "SyndicationRight",
+        "text": "open"
+      }, {
+        "name": "AdultContent",
+        "text": "false"
+      }, {
+        "name": "Language",
+        "text": "en-US"
+      }, {
+        "name": "InputEncoding",
+        "text": "UTF-8"
+      }, {
+        "name": "Image",
+        "text": "favicon.ico",
+        "attrs": {
+          "height": "16",
+          "width": "16",
+          "type": "image/x-icon"
+        }
+      }, {
+        "name": "Image",
+        "text": "opensearch-64x64.png",
+        "attrs": {
+          "height": "64",
+          "width": "64",
+          "type": "image/png"
+        }
+      }, {
+        "name": "Url",
+        "attrs": {
+          "type": "text/html",
+          "template": "https://example.com/?search={searchTerms}"
+        },
+        "children": [{
+          "name": "Param",
+          "attrs": {
+            "name": "search",
+            "value": "{searchTerms}"
+          }
+        }]
+      }, {
+        "name": "Url",
+        "attrs": {
+          "type": "application/x-suggestions+json",
+          "template": "https://example.com/searchSuggestions"
+        }
+      }, {
+        "name": "moz:SearchForm",
+        "text": "https://example.com/search"
+      }]
+    }]
   }
 }

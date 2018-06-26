@@ -336,5 +336,14 @@
       "rotate": false,
       "mask": false
     }
+  },
+  "opensearch": {
+    "opensearch-64x64.png": {
+      "width": 64,
+      "height": 64,
+      "transparent": true,
+      "rotate": false,
+      "mask": false
+    }
   }
 }
