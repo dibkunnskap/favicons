@@ -194,7 +194,7 @@ module.exports = function(options) {
             properties[0].children.map(property => {
               switch (property.name) {
                 case "ShortName":
-                  property.text = options.appName;
+                  property.text = options.searchName || options.appName;
                   break;
                 case "Description":
                   property.text = options.appDescription;

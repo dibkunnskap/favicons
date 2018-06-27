@@ -13,6 +13,7 @@
   "searchPageUrl": "/",
   "searchParameter": "search",
   "searchUrl": "/",
+  "searchName": null,
   "searchTitle": null,
   "adultContent": false,
   "start_url": "/?homescreen=1",
