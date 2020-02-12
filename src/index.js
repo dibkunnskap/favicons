@@ -1,6 +1,6 @@
 const through2 = require("through2");
 const clone = require("clone");
-const mergeDefaults = require("merge-defaults");
+const mergeDefaults = require("lodash.defaultsdeep");
 const configDefaults = require("require-directory")(module, "config");
 const helpers = require("./helpers.js");
 const path = require("path");
@@ -39,26 +39,26 @@ function favicons(source, options = {}, next) {
     }
 
     const maximum = Math.max(properties.width, properties.height);
-    const offset = Math.round(maximum / 100 * platformOptions.offset) || 0;
+    const offset = Math.round((maximum / 100) * platformOptions.offset) || 0;
 
-    if (platformOptions.disableTransparency) {
-      properties.transparent = false;
-    }
+    const mergedProperties = Object.assign({}, properties, platformOptions);
+
+    mergedProperties.transparent =
+      !mergedProperties.background ||
+      mergedProperties.background === "transparent";
 
     return Promise.all([
-      µ.Images.create(properties, platformOptions.background),
-      µ.Images.render(sourceset, properties, offset)
+      µ.Images.create(mergedProperties),
+      µ.Images.render(sourceset, mergedProperties, offset)
     ])
       .then(([canvas, buffer]) =>
-        µ.Images.composite(canvas, buffer, properties, offset, maximum)
+        µ.Images.composite(canvas, buffer, mergedProperties, offset, maximum)
       )
       .then(contents => ({ name, contents }));
   }
 
   function createHTML(platform) {
-    return Promise.all(
-      Object.values(config.html[platform] || {}).map(µ.HTML.parse)
-    );
+    return Promise.all((config.html[platform] || []).map(µ.HTML.render));
   }
 
   function createFiles(platform) {
@@ -95,9 +95,13 @@ function favicons(source, options = {}, next) {
   async function create(sourceset) {
     const responses = [];
 
-    const platforms = Object.keys(options.icons).filter(
-      platform => options.icons[platform]
-    );
+    const platforms = Object.keys(options.icons)
+      .filter(platform => options.icons[platform])
+      .sort((a, b) => {
+        if (a === "favicons") return -1;
+        if (b === "favicons") return 1;
+        return a.localeCompare(b);
+      });
 
     for (const platform of platforms) {
       responses.push(await createPlatform(sourceset, platform));
@@ -106,7 +110,7 @@ function favicons(source, options = {}, next) {
     return {
       images: [].concat(...responses.map(r => r[0])),
       files: [].concat(...responses.map(r => r[1])),
-      html: [].concat(...responses.map(r => r[2])).sort()
+      html: [].concat(...responses.map(r => r[2]))
     };
   }
 
@@ -114,7 +118,7 @@ function favicons(source, options = {}, next) {
 
   return options.pipeHTML
     ? result.then(response =>
-        µ.Files.create(response.html, options.html, false).then(file =>
+        µ.Files.create(response.html, options.html, true).then(file =>
           Object.assign(response, { files: [...response.files, file] })
         )
       )

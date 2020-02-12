@@ -1,6 +1,6 @@
 {
   "name": "favicons",
-  "version": "5.1.1-dib.2",
+  "version": "5.5.0-dib.0",
   "description": "Favicon generator for Node.js",
   "main": "src/index.js",
   "files": [
@@ -14,11 +14,19 @@
     "lint": "eslint . --ignore-path .gitignore",
     "fix": "npm run lint -- --fix",
     "pretest": "npm run lint",
-    "test-only": "ava --require @babel/register test/**/*.test.js",
+    "test-only": "ava",
     "test": "npm run test-only",
     "coverage": "nyc npm test",
-    "build": "gulp",
-    "prepublish": "gulp"
+    "prepare": "gulp"
+  },
+  "ava": {
+    "require": [
+      "@babel/register"
+    ],
+    "files": [
+      "test/**/*.test.js",
+      "test/*.test.js"
+    ]
   },
   "keywords": [
     "favicon",
@@ -34,37 +42,43 @@
     "url": "https://github.com/itgalaxy/favicons/issues"
   },
   "homepage": "https://github.com/itgalaxy/favicons",
+  "engines": {
+    "node": ">=8.9.4"
+  },
   "dependencies": {
-    "@babel/polyfill": "^7.0.0-beta.42",
-    "cheerio": "^1.0.0-rc.3",
-    "clone": "^1.0.4",
-    "colors": "^1.2.1",
-    "image-size": "^0.6.2",
+    "clone": "^2.1.2",
+    "colors": "^1.4.0",
+    "core-js": "^3.4.5",
+    "image-size": "^0.8.3",
     "jimp": "^0.9.3",
-    "jsontoxml": "^1.0.0",
-    "merge-defaults": "^0.2.2",
+    "jsontoxml": "^1.0.1",
+    "lodash.defaultsdeep": "^4.6.1",
     "require-directory": "^2.1.1",
-    "svg2png": "4.1.1",
-    "through2": "^2.0.3",
+    "sharp": "^0.23.3",
+    "through2": "^3.0.1",
     "tinycolor2": "^1.4.1",
     "to-ico": "^1.1.5",
-    "util.promisify": "^1.0.0",
-    "vinyl": "^2.1.0"
+    "vinyl": "^2.2.0",
+    "xml2js": "^0.4.22"
   },
   "devDependencies": {
-    "@babel/core": "^7.8.4",
-    "@babel/preset-env": "^7.0.0-beta.42",
-    "@babel/register": "^7.0.0-beta.42",
-    "ava": "^1.0.0-beta.3",
-    "babel-plugin-istanbul": "^4.1.5",
-    "dir-compare": "^1.4.0",
-    "eslint": "^4.19.1",
-    "eslint-config-prettier": "^2.9.0",
-    "eslint-plugin-prettier": "^2.6.0",
-    "gulp": "^4.0.0",
-    "gulp-babel": "^8.0.0-beta.2",
-    "gulp-eslint": "^4.0.2",
-    "nyc": "^11.6.0",
-    "prettier": "^1.11.1"
+    "@babel/core": "^7.7.4",
+    "@babel/preset-env": "^7.7.4",
+    "@babel/register": "^7.7.4",
+    "ava": "^2.4.0",
+    "babel-plugin-istanbul": "^5.2.0",
+    "concordance-comparator": "^0.1.0",
+    "del": "^5.1.0",
+    "dir-compare": "^1.8.0",
+    "eslint": "^6.7.1",
+    "eslint-config-prettier": "^6.7.0",
+    "eslint-plugin-prettier": "^3.1.1",
+    "fibers": "^4.0.2",
+    "gulp": "^4.0.2",
+    "gulp-babel": "^8.0.0",
+    "gulp-eslint": "^6.0.0",
+    "nyc": "^14.1.1",
+    "prettier": "^1.19.1",
+    "resemblejs": "^3.2.3"
   }
 }

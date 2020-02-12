@@ -1,14 +1,14 @@
 const path = require("path");
 const url = require("url");
 const fs = require("fs");
-const promisify = require("util.promisify");
+const { promisify } = require("util");
 const color = require("tinycolor2");
-const cheerio = require("cheerio");
 const colors = require("colors");
 const jsonxml = require("jsontoxml");
 const sizeOf = require("image-size");
 const Jimp = require("jimp");
-const svg2png = require("svg2png");
+const sharp = require("sharp");
+const xml2js = require("xml2js");
 const PLATFORM_OPTIONS = require("./config/platform-options.json");
 
 module.exports = function(options) {
@@ -16,8 +16,11 @@ module.exports = function(options) {
     return path.substr(-1) === "/" ? path : `${path}/`;
   }
 
-  function relative(path) {
-    return url.resolve(options.path && directory(options.path), path);
+  function relative(path, relativeToPath = false) {
+    return url.resolve(
+      (!relativeToPath && options.path && directory(options.path)) || "",
+      path
+    );
   }
 
   function log(context, message) {
@@ -35,6 +38,63 @@ module.exports = function(options) {
 
     return Jimp.rgbaToInt(r, g, b, a * 255);
   }
+
+  // sharp renders the SVG in its source width and height with 72 DPI which can
+  // cause a blurry result in case the source SVG is defined in lower size than
+  // the target size. To avoid this, resize the source SVG to the needed size
+  // before passing it to sharp by increasing its width and/or height
+  // attributes.
+  //
+  // Currently it seems this won't be fixed in sharp, so we need a workaround:
+  // https://github.com/lovell/sharp/issues/729#issuecomment-284708688
+  //
+  // They suggest setting the image density to a "resized" density based on the
+  // target render size but this does not seem to work with favicons and may
+  // cause other errors with "unnecessarily high" image density values.
+  //
+  // For further information, see:
+  // https://github.com/itgalaxy/favicons/issues/264
+  const svgtool = {
+    ensureSize(svgSource, width, height) {
+      let svgWidth = svgSource.size.width;
+      let svgHeight = svgSource.size.height;
+
+      if (svgWidth >= width && svgHeight >= height) {
+        // If the base SVG is large enough, it does not need to be modified.
+        return Promise.resolve(svgSource.file);
+      } else if (width > height) {
+        svgHeight = Math.round(svgHeight * (width / svgWidth));
+        svgWidth = width;
+      } else {
+        // width <= height
+        svgWidth = Math.round(svgWidth * (height / svgHeight));
+        svgHeight = height;
+      }
+
+      // Modify the source SVG's width and height attributes for sharp to render
+      // it correctly.
+      log("svgtool:ensureSize", `Resizing SVG to ${svgWidth}x${svgHeight}`);
+      return this.resize(svgSource.file, svgWidth, svgHeight);
+    },
+
+    resize(svgFile, width, height) {
+      return new Promise((resolve, reject) => {
+        xml2js.parseString(svgFile, (err, xmlDoc) => {
+          if (err) {
+            return reject(err);
+          }
+
+          xmlDoc.svg.$.width = width;
+          xmlDoc.svg.$.height = height;
+
+          const builder = new xml2js.Builder();
+          const modifiedSvg = builder.buildObject(xmlDoc);
+
+          resolve(Buffer.from(modifiedSvg));
+        });
+      });
+    }
+  };
 
   return {
     General: {
@@ -80,23 +140,17 @@ module.exports = function(options) {
         }
 
         for (const key of Object.keys(PLATFORM_OPTIONS)) {
-          const { platforms, defaultTo } = PLATFORM_OPTIONS[key];
+          const platformOption = PLATFORM_OPTIONS[key];
+          const { platforms, defaultTo } = platformOption;
 
           if (!(key in parameters) && platforms.includes(platform)) {
-            parameters[key] = defaultTo;
+            parameters[key] =
+              platform in platformOption ? platformOption[platform] : defaultTo;
           }
         }
 
-        if (typeof parameters.background === "boolean") {
-          if (platform === "android" && !parameters.background) {
-            parameters.background = "transparent";
-          } else {
-            parameters.background = options.background;
-          }
-        }
-
-        if (platform === "android" && parameters.background !== "transparent") {
-          parameters.disableTransparency = true;
+        if (parameters.background === true) {
+          parameters.background = options.background;
         }
 
         return parameters;
@@ -104,58 +158,31 @@ module.exports = function(options) {
     },
 
     HTML: {
-      parse(html) {
-        return new Promise(resolve => {
-          log("HTML:parse", "HTML found, parsing and modifying source");
-          const $ = cheerio.load(html),
-            link = $("*").is("link"),
-            attribute = link ? "href" : "content",
-            value = $("*")
-              .first()
-              .attr(attribute);
-
-          if (path.extname(value)) {
-            $("*")
-              .first()
-              .attr(attribute, relative(value));
-          } else if (value.slice(0, 1) === "#") {
-            $("*")
-              .first()
-              .attr(attribute, options.background);
-          } else if (
-            html.includes("application-name") ||
-            html.includes("apple-mobile-web-app-title")
-          ) {
-            $("*")
-              .first()
-              .attr(attribute, options.appName);
-          }
-          if (html.includes("application/opensearchdescription+xml")) {
-            $("*")
-              .first()
-              .attr("title", options.searchTitle);
-          }
-          return resolve($.html());
-        });
+      render(htmlTemplate) {
+        return htmlTemplate(Object.assign({}, options, { relative }));
       }
     },
 
     Files: {
-      create(properties, name) {
-        return new Promise(resolve => {
+      create(properties, name, isHtml) {
+        return new Promise((resolve, reject) => {
           log("Files:create", `Creating file: ${name}`);
           if (name === "manifest.json") {
             properties.name = options.appName;
-            properties.short_name = options.appName;
+            properties.short_name = options.appShortName || options.appName;
             properties.description = options.appDescription;
             properties.dir = options.dir;
             properties.lang = options.lang;
             properties.display = options.display;
             properties.orientation = options.orientation;
+            properties.scope = options.scope;
             properties.start_url = options.start_url;
             properties.background_color = options.background;
             properties.theme_color = options.theme_color;
-            properties.icons.map(icon => (icon.src = relative(icon.src)));
+            properties.icons.map(
+              icon =>
+                (icon.src = relative(icon.src, options.manifestRelativePaths))
+            );
             properties = JSON.stringify(properties, null, 2);
           } else if (name === "manifest.webapp") {
             properties.version = options.version;
@@ -166,7 +193,10 @@ module.exports = function(options) {
             properties.icons = Object.keys(properties.icons).reduce(
               (obj, key) =>
                 Object.assign(obj, {
-                  [key]: relative(properties.icons[key])
+                  [key]: relative(
+                    properties.icons[key],
+                    options.manifestRelativePaths
+                  )
                 }),
               {}
             );
@@ -176,7 +206,10 @@ module.exports = function(options) {
               if (property.name === "TileColor") {
                 property.text = options.background;
               } else {
-                property.attrs.src = relative(property.attrs.src);
+                property.attrs.src = relative(
+                  property.attrs.src,
+                  options.manifestRelativePaths
+                );
               }
             });
             properties = jsonxml(properties, {
@@ -187,7 +220,10 @@ module.exports = function(options) {
           } else if (name === "yandex-browser-manifest.json") {
             properties.version = options.version;
             properties.api_version = 1;
-            properties.layout.logo = relative(properties.layout.logo);
+            properties.layout.logo = relative(
+              properties.layout.logo,
+              options.manifestRelativePaths
+            );
             properties.layout.color = options.background;
             properties = JSON.stringify(properties, null, 2);
           } else if (name === "opensearch-description.xml") {
@@ -247,41 +283,38 @@ module.exports = function(options) {
               xmlHeader: true,
               indent: "  "
             });
-          } else if (/\.html$/.test(name)) {
+          } else if (isHtml) {
             properties = properties.join("\n");
+          } else {
+            reject(`Unknown format of file ${name}.`);
           }
-          return resolve({ name, contents: properties });
+          resolve({ name, contents: properties });
         });
       }
     },
 
     Images: {
-      create(properties, background) {
-        return new Promise((resolve, reject) => {
-          log(
-            "Image:create",
-            `Creating empty ${properties.width}x${
-              properties.height
-            } canvas with ${
-              properties.transparent ? "transparent" : background
-            } background`
-          );
+      create(properties) {
+        log(
+          "Image:create",
+          `Creating empty ${properties.width}x${
+            properties.height
+          } canvas with ${
+            properties.transparent ? "transparent" : properties.background
+          } background`
+        );
 
-          this.jimp = new Jimp(
-            properties.width,
-            properties.height,
-            properties.transparent ? 0 : parseColor(background),
-            (error, canvas) => (error ? reject(error) : resolve(canvas))
-          );
-        });
+        return Jimp.create(
+          properties.width,
+          properties.height,
+          properties.transparent ? 0 : parseColor(properties.background)
+        );
       },
 
       render(sourceset, properties, offset) {
         log(
           "Image:render",
-          `Find nearest icon to ${properties.width}x${
-            properties.height
-          } with offset ${offset}`
+          `Find nearest icon to ${properties.width}x${properties.height} with offset ${offset}`
         );
 
         const width = properties.width - offset * 2;
@@ -291,8 +324,22 @@ module.exports = function(options) {
         let promise = null;
 
         if (svgSource) {
+          const background = { r: 0, g: 0, b: 0, alpha: 0 };
+
           log("Image:render", `Rendering SVG to ${width}x${height}`);
-          promise = svg2png(svgSource.file, { height, width }).then(Jimp.read);
+          promise = svgtool
+            .ensureSize(svgSource, width, height)
+            .then(svgBuffer =>
+              sharp(svgBuffer)
+                .resize({
+                  background,
+                  width,
+                  height,
+                  fit: sharp.fit.contain
+                })
+                .toBuffer()
+            )
+            .then(Jimp.read);
         } else {
           const sideSize = Math.max(width, height);
 
@@ -320,57 +367,60 @@ module.exports = function(options) {
             image.contain(
               width,
               height,
-              Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_MIDDLE
+              Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_MIDDLE,
+              options.pixel_art &&
+                width >= image.bitmap.width &&
+                height >= image.bitmap.height
+                ? Jimp.RESIZE_NEAREST_NEIGHBOR
+                : null
             )
           );
         }
 
-        return promise.then(image => {
-          if (properties.rotate) {
-            const degrees = 90;
-
-            log("Images:render", `Rotating image by ${degrees}`);
-            image.rotate(degrees, false);
-          }
-
-          return image;
-        });
+        return promise.then(image => image);
       },
 
       mask: Jimp.read(path.join(__dirname, "mask.png")),
-      overlay: Jimp.read(path.join(__dirname, "overlay.png")),
+      overlayGlow: Jimp.read(path.join(__dirname, "overlay-glow.png")),
+      // Gimp drop shadow filter: input: mask.png, config: X: 2, Y: 5, Offset: 5, Color: black, Opacity: 20
+      overlayShadow: Jimp.read(path.join(__dirname, "overlay-shadow.png")),
 
       composite(canvas, image, properties, offset, max) {
         if (properties.mask) {
           log("Images:composite", "Masking composite image on circle");
-          return Promise.all([this.mask, this.overlay]).then(
-            ([mask, overlay]) => {
-              canvas.mask(mask.clone().resize(max, Jimp.AUTO), 0, 0);
-              canvas.composite(overlay.clone().resize(max, Jimp.AUTO), 0, 0);
-              properties = Object.assign({}, properties, {
-                mask: false
-              });
-
-              return this.composite(canvas, image, properties, offset, max);
+          return Promise.all([
+            this.mask,
+            this.overlayGlow,
+            this.overlayShadow
+          ]).then(([mask, glow, shadow]) => {
+            canvas.mask(mask.clone().resize(max, Jimp.AUTO), 0, 0);
+            if (properties.overlayGlow) {
+              canvas.composite(glow.clone().resize(max, Jimp.AUTO), 0, 0);
             }
-          );
+            if (properties.overlayShadow) {
+              canvas.composite(shadow.clone().resize(max, Jimp.AUTO), 0, 0);
+            }
+            properties = Object.assign({}, properties, {
+              mask: false
+            });
+
+            return this.composite(canvas, image, properties, offset, max);
+          });
         }
 
         log(
           "Images:composite",
-          `Compositing favicon on ${properties.width}x${
-            properties.height
-          } canvas with offset ${offset}`
+          `Compositing favicon on ${properties.width}x${properties.height} canvas with offset ${offset}`
         );
 
-        return new Promise((resolve, reject) =>
-          canvas
-            .composite(image, offset, offset)
-            .getBuffer(
-              Jimp.MIME_PNG,
-              (error, result) => (error ? reject(error) : resolve(result))
-            )
-        );
+        canvas.composite(image, offset, offset);
+        if (properties.rotate) {
+          const degrees = 90;
+
+          log("Images:render", `Rotating image by ${degrees}`);
+          canvas.rotate(degrees, false);
+        }
+        return canvas.getBufferAsync(Jimp.MIME_PNG);
       }
     }
   };

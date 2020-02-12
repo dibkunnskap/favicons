@@ -9,25 +9,22 @@ const { Image, snapshotResult } = require("./Image");
 
 snapshotManager.plugins.push(factory(Image, v => new Image(v[0], v[1])));
 
-test("should allow specifying metadata", async t => {
+test("should images without options.path to manifests when manifestRelativePaths is true", async t => {
   t.plan(1);
 
   const result = await favicons(logo_png, {
-    appName: "PWA",
-    appShortName: "PWA",
-    appDescription: "Progressive Web App",
-    developerName: "John Doe",
-    developerURL: "https://john.doe.com",
-    dir: "rtl",
-    lang: "ar",
-    background: "#333",
-    theme_color: "#abc",
-    appleStatusBarStyle: "default",
-    display: "fullscreen",
-    orientation: "portrait",
-    scope: "/",
-    start_url: "/subdomain/",
-    version: "3.2.1"
+    manifestRelativePaths: true,
+    path: "favicons/",
+    icons: {
+      android: true,
+      firefox: true,
+      windows: true,
+      yandex: true,
+      appleIcon: false,
+      appleStartup: false,
+      coast: false,
+      favicons: false
+    }
   });
 
   await snapshotResult(t, result);

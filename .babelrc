@@ -1,14 +1,18 @@
 {
   "presets": [
-    ["@babel/preset-env", {
-      "targets": {
-        "node": "4"
-      },
-      "useBuiltIns": "usage",
-      "exclude": [
-        "transform-regenerator"
-      ]
-    }]
+    [
+      "@babel/preset-env",
+      {
+        "targets": {
+          "node": "8.9"
+        },
+        "useBuiltIns": "usage",
+        "corejs": 3,
+        "exclude": [
+          "transform-regenerator"
+        ]
+      }
+    ]
   ],
   "env": {
     "test": {

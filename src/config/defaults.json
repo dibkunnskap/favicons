@@ -1,6 +1,7 @@
 {
   "path": "/",
   "appName": null,
+  "appShortName": null,
   "appDescription": null,
   "developerName": null,
   "developerURL": null,
@@ -8,6 +9,7 @@
   "lang": "en-US",
   "background": "#fff",
   "theme_color": "#fff",
+  "appleStatusBarStyle": "black-translucent",
   "display": "standalone",
   "orientation": "any",
   "searchPageUrl": "/",
@@ -22,6 +24,9 @@
   "version": "1.0",
   "logging": false,
   "pipeHTML": false,
+  "pixel_art": false,
+  "loadManifestWithCredentials": false,
+  "manifestRelativePaths": false,
   "icons": {
     "android": true,
     "appleIcon": true,

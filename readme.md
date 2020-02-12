@@ -27,22 +27,27 @@ Please note: Favicons is tested on Node 4.x and above.
 
 ```js
 var favicons = require('favicons'),
-    source = 'test/logo.png',           // Source image(s). `string`, `buffer` or array of `string`
-    configuration = {
-        path: "/",                      // Path for overriding default icons path. `string`
-        appName: null,                  // Your application's name. `string`
-        appDescription: null,           // Your application's description. `string`
-        developerName: null,            // Your (or your developer's) name. `string`
-        developerURL: null,             // Your (or your developer's) URL. `string`
-        dir: "auto",                    // Primary text direction for name, short_name, and description
-        lang: "en-US"                   // Primary language for name and short_name
-        background: "#fff",             // Background colour for flattened icons. `string`
-        theme_color: "#fff",            // Theme color user for example in Android's task switcher. `string`
-        display: "standalone",          // Preferred display mode: "fullscreen", "standalone", "minimal-ui" or "browser". `string`
-        orientation: "any",             // Default orientation: "any", "natural", "portrait" or "landscape". `string`
-        start_url: "/?homescreen=1",    // Start URL when launching the application from a device. `string`
-        version: "1.0",                 // Your application's version string. `string`
-        logging: false,                 // Print logs to console? `boolean`
+    source = 'test/logo.png',                     // Source image(s). `string`, `buffer` or array of `string`
+    configuration = {          
+        path: "/",                                // Path for overriding default icons path. `string`
+        appName: null,                            // Your application's name. `string`
+        appShortName: null,                       // Your application's short_name. `string`. Optional. If not set, appName will be used
+        appDescription: null,                     // Your application's description. `string`
+        developerName: null,                      // Your (or your developer's) name. `string`
+        developerURL: null,                       // Your (or your developer's) URL. `string`
+        dir: "auto",                              // Primary text direction for name, short_name, and description
+        lang: "en-US",                            // Primary language for name and short_name
+        background: "#fff",                       // Background colour for flattened icons. `string`
+        theme_color: "#fff",                      // Theme color user for example in Android's task switcher. `string`
+        appleStatusBarStyle: "black-translucent", // Style for Apple status bar: "black-translucent", "default", "black". `string`
+        display: "standalone",                    // Preferred display mode: "fullscreen", "standalone", "minimal-ui" or "browser". `string`
+        orientation: "any",                       // Default orientation: "any", "natural", "portrait" or "landscape". `string`
+        scope: "/",                               // set of URLs that the browser considers within your app
+        start_url: "/?homescreen=1",              // Start URL when launching the application from a device. `string`
+        version: "1.0",                           // Your application's version string. `string`
+        logging: false,                           // Print logs to console? `boolean`
+        pixel_art: false,                         // Keeps pixels "sharp" when scaling up, for pixel art.  Only supported in offline mode.
+        loadManifestWithCredentials: false,       // Browsers don't send cookies when fetching a manifest, enable this to fix that. `boolean`
         icons: {
             // Platform Options:
             // - offset - offset in percentage
@@ -50,15 +55,18 @@ var favicons = require('favicons'),
             //   * false - use default
             //   * true - force use default, e.g. set background for Android icons
             //   * color - set background for the specified icons
+            //   * mask - apply mask in order to create circle icon (applied by default for firefox). `boolean`
+            //   * overlayGlow - apply glow effect after mask has been applied (applied by default for firefox). `boolean`
+            //   * overlayShadow - apply drop shadow after mask has been applied .`boolean`
             //
-            android: true,              // Create Android homescreen icon. `boolean` or `{ offset, background }`
-            appleIcon: true,            // Create Apple touch icons. `boolean` or `{ offset, background }`
-            appleStartup: true,         // Create Apple startup images. `boolean` or `{ offset, background }`
-            coast: true,                // Create Opera Coast icon. `boolean` or `{ offset, background }`
-            favicons: true,             // Create regular favicons. `boolean`
-            firefox: true,              // Create Firefox OS icons. `boolean` or `{ offset, background }`
-            windows: true,              // Create Windows 8 tile icons. `boolean` or `{ background }`
-            yandex: true                // Create Yandex browser icon. `boolean` or `{ background }`
+            android: true,              // Create Android homescreen icon. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
+            appleIcon: true,            // Create Apple touch icons. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
+            appleStartup: true,         // Create Apple startup images. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
+            coast: true,                // Create Opera Coast icon. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
+            favicons: true,             // Create regular favicons. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
+            firefox: true,              // Create Firefox OS icons. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
+            windows: true,              // Create Windows 8 tile icons. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
+            yandex: true                // Create Yandex browser icon. `boolean` or `{ offset, background, mask, overlayGlow, overlayShadow }`
         }
     },
     callback = function (error, response) {
@@ -82,15 +90,16 @@ var config = require('favicons').config;
 
 ### Gulp
 
-To use Favicons with Gulp, do as follows:
+To use Favicons with Gulp, you can either use the [gulp-plugin](https://github.com/rejas/gulp-favicons) or call it manually as follows:
 
 ```js
 var favicons = require("favicons").stream,
-    gutil = require("gulp-util");
+    log = require("fancy-log");
 
 gulp.task("default", function () {
     return gulp.src("logo.png").pipe(favicons({
         appName: "My App",
+        appShortName: "App",
         appDescription: "This is my application",
         developerName: "Hayden Bleasel",
         developerURL: "http://haydenbleasel.com/",
@@ -99,6 +108,7 @@ gulp.task("default", function () {
         url: "http://haydenbleasel.com/",
         display: "standalone",
         orientation: "portrait",
+        scope: "/",
         start_url: "/?homescreen=1",
         version: 1.0,
         logging: false,
@@ -106,14 +116,14 @@ gulp.task("default", function () {
         pipeHTML: true,
         replace: true
     }))
-    .on("error", gutil.log)
+    .on("error", log)
     .pipe(gulp.dest("./"));
 });
 ```
 
 ## Output
 
-For the full list of files, check `config/files.json`. For the full HTML code, check `config/html.json`. Finally, for the full list of icons, check `config/icons.json`.
+For the full list of files, check `config/files.json`. For the full HTML code, check `config/html.js`. Finally, for the full list of icons, check `config/icons.json`.
 
 ## Questions
 
